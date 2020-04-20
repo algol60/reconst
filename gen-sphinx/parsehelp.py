@@ -15,10 +15,6 @@ SECTIONS = {
     'h4':    "'"
 }
 
-# These are the tags that accumulate text.
-#
-TEXT_TAGS = ['dd', 'div', 'dt', 'h1', 'h2', 'h3', 'li', 'p', 'pre', 'span', 'title']
-
 class ParseError(ValueError):
     pass
 
@@ -30,6 +26,14 @@ def attr(tag, key):
             return v
 
     return None
+
+def normalise(text):
+    """Convert multiple spaces, new lines to a single space; remove leading/trailing spaces."""
+    return ' '.join(text.strip().split())
+
+def table_row(text_list):
+    """Make a CSV row from a list."""
+    return ','.join(f'"{text}"' for text in text_list)
 
 class HelpParser(HTMLParser):
 
@@ -108,10 +112,8 @@ class HelpParser(HTMLParser):
             # No end tag for <hr>, so do all the work here.
             #
             self.gathertext('----\n\n')
-        else:
-            self.gather[tag.tag] = io.StringIO()
 
-        if tag.tag=='img':
+        elif tag.tag=='img':
             # No end tag for <img>, so do all the work here.
             #
             self.pop()
@@ -130,6 +132,22 @@ class HelpParser(HTMLParser):
             self.gathertext(f'{img}\n')
 
             self.resources.append((src, src2))
+
+        elif tag.tag=='table':
+            # Store table data in a list of lists.
+            #
+            self.gather[tag.tag] = []
+            self.table_has_header = False
+        elif tag.tag=='tr':
+            # Start a new list for a new row.
+            #
+            self.gather['table'].append([])
+
+        else:
+            self.gather[tag.tag] = io.StringIO()
+
+            if tag.tag=='thead':
+                self.table_has_header = True
 
     def handle_endtag(self, tag):
         # print(f'&END  : {tag}')
@@ -170,6 +188,23 @@ class HelpParser(HTMLParser):
             # for item in self.gather[tag]:
             #     item.seek(0)
             #     items.append(item.read())
+        elif tag=='table':
+            # Deal with the table's list of lists.
+            # Use csv-table format because it's the easiest.
+            #
+            table = '.. csv-table::\n'
+            if self.table_has_header:
+                row = self.gather[tag].pop(0)
+                table += f'   :header: {table_row(row)}\n'
+                table += '\n'
+                for row in self.gather[tag]:
+                    table += f'   {table_row(row)}\n'
+
+                self.gathertext(f'{table}\n')
+            # print('TABLE', self.gather[tag])
+            return
+        elif tag=='tr':
+            pass
         else:
             text = self.gather[tag]
             text.seek(0)
@@ -182,12 +217,10 @@ class HelpParser(HTMLParser):
             self.gathertag(outer_tag, f'`{text} <{href}>`_')
 
         elif tag in ['caption', 'div', 'p']:
-            text = ' '.join(text.strip().split())
+            text = normalise(text)
             self.gathertext(f'{text}\n\n')
 
         elif tag=='dl':
-            # print('@@endtag dl', items)
-            # import fred
             indent, pad = ('', '')
             for item in items:
                 self.gathertext(f'{indent}{item}{pad}\n')
@@ -238,7 +271,6 @@ class HelpParser(HTMLParser):
 
         elif tag in ['dd', 'dt', 'li']:
             outer_tag = self.top()
-            # print('@@item', tag, outer_tag)
             self.gather[outer_tag.tag].append(text)
             # # TODO: ul or ol?
             # #
@@ -247,10 +279,12 @@ class HelpParser(HTMLParser):
             #     self.gathertext(f'{indent}{line}\n')
             #     indent = '  '
 
-        elif tag in ['table', 'td', 'th', 'tr']:
-            print('-- Ignoring table stuff for now')
+        elif tag in ['td', 'th']:
+            self.gather['table'][-1].append(normalise(text))
+            if tag=='th':
+                self.table_has_header = True
 
-        elif tag in ['body', 'center', 'head', 'html', 'ol', 'script', 'sub', 'tbody', 'thead', 'ul']:
+        elif tag in ['body', 'center', 'head', 'html', 'ol', 'script', 'sub', 'tbody', 'thead', 'tr', 'ul']:
             # Don't care about these at endtag time.
             #
             pass
@@ -309,8 +343,12 @@ class HelpParser(HTMLParser):
             # TODO: ul or ol?
             #
             pass
-        elif tag.tag in ['table', 'tbody', 'td', 'th', 'thead', 'tr']:
-            print('-- Ignoring table stuff for now')
+        elif tag.tag in ['table', 'tbody', 'thead', 'tr']:
+            # Don't care about data at this level.
+            #
+            pass
+        elif tag.tag in ['td', 'th']:
+            self.gathertag(tag, lines)
         else:
             raise ParseError(f'Unrecognised data tag: {tag}')
 

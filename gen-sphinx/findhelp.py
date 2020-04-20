@@ -16,7 +16,7 @@ from parsehelp import parse_html
 
 ITEMS = '__items__'
 
-INDEX_RST = '''.. Frogger documentation master file, created by
+INDEX_RST = '''.. Constellation documentation master file, created by
    {} on {}.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -266,6 +266,7 @@ if __name__=='__main__':
         if in_html:
             # This is a help .rst file (not a category / index.rst file).
             #
+            print(in_html)
             rest, resources = parse_html(in_html)
             with open(out_rst, 'w', encoding='utf8') as f:
                 f.write(rest)
@@ -273,7 +274,7 @@ if __name__=='__main__':
             for res_source, res_target in resources:
                 s = in_html.parent / res_source
                 t = out_rst.parent / res_target
-                print(f'Copying resource {s} to {t} ...')
+                # print(f'Copying resource {s} to {t} ...')
                 shutil.copy(s, t)
 
 
