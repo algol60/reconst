@@ -271,6 +271,11 @@ if __name__=='__main__':
             with open(out_rst, 'w', encoding='utf8') as f:
                 f.write(rest)
 
+                # Include the helpId in a comment directive that can be
+                # detected at documentation build time to create the help_map.txt file.
+                #
+                f.write(f'\n.. help-id: {help_id}\n')
+
             for res_source, res_target in resources:
                 s = in_html.parent / res_source
                 t = out_rst.parent / res_target
@@ -300,11 +305,11 @@ if __name__=='__main__':
         with open(args.outdir / 'pages' / level / 'index.rst', 'w') as f:
             f.write(contents)
 
-    # Save the mapping from helpId to page, so NetBeans help knows where to find stuff.
-    #
-    # pprint.pprint(help_map)
-    with open(args.outdir / 'pages/help_map.txt', 'w') as f:
-        for help_id, rst in help_map.items():
-            rst = rst.with_suffix('')
-            relative_rst = str(rst.relative_to(args.outdir / 'pages')).replace('\\', '/')
-            print(f'{help_id},{relative_rst}', file=f)
+    # # Save the mapping from helpId to page, so NetBeans help knows where to find stuff.
+    # #
+    # # pprint.pprint(help_map)
+    # with open(args.outdir / 'pages/help_map.txt', 'w') as f:
+    #     for help_id, rst in help_map.items():
+    #         rst = rst.with_suffix('')
+    #         relative_rst = str(rst.relative_to(args.outdir / 'pages')).replace('\\', '/')
+    #         print(f'{help_id},{relative_rst}', file=f)
