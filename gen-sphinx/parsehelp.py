@@ -56,8 +56,14 @@ class HelpParser(HTMLParser):
 
         # Resources such as images need to be kept with the document.
         # Keep track tuples of relative (from, to) filenames.
+        # The caller can use this to copy what needs to be copied.
         #
         self.resources = []
+
+        # All images will be inline using substitution references,
+        # so track the img substitutions.
+        #
+        self.imgs = {}
 
     def push(self, tag):
         """Push a new tag onto the tag stack."""
@@ -129,7 +135,9 @@ class HelpParser(HTMLParser):
             if alt:
                 img += f'   :alt: {alt}\n'
 
-            self.gathertext(f'{img}\n')
+            self.imgs[src2] = img
+            outer_tag = self.top()
+            self.gathertag(outer_tag, f'|{src2}| ')
 
             self.resources.append((src, src2))
 
@@ -242,7 +250,8 @@ class HelpParser(HTMLParser):
             # print('@@endtag', tag, items)
             indent = '* '
             for item in items:
-                self.gathertext(f'{indent}{item}\n\n')
+                self.gathertext(f'{indent}{normalise(item)}\n')
+            self.gathertext('\n')
 
         elif tag=='pre':
             self.gathertext('.. code-block:: text\n')
@@ -356,6 +365,14 @@ class HelpParser(HTMLParser):
         t = Tag(tag, attrs)
         # print(f'&TAG  : {t}')
 
+    def close(self):
+        super().close()
+
+        # Append any image substitution definitions.
+        #
+        for img, subst_def in self.imgs.items():
+            subst_def = subst_def.replace('..', f'.. |{img}|', 1)
+            self.gathertext(f'{subst_def}\n')
 
 def parse_html(help_html):
     with open(help_html) as f:
