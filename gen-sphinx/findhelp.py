@@ -250,14 +250,13 @@ if __name__=='__main__':
     #
     levels = {}
 
-    # We also need a mapping of helpId to help page.
-    # NetBeans code runs on helpIds and we don't want to change that,
-    # so the help service needs to accept a helpId and map it to the correct page.
-    #
-    help_map = {}
+    # # We also need a mapping of helpId to help page.
+    # # NetBeans code runs on helpIds and we don't want to change that,
+    # # so the help service needs to accept a helpId and map it to the correct page.
+    # #
+    # help_map = {}
 
-    # pages = []
-    for level, category, in_html, out_rst, help_id in generate_pages(args.outdir / 'pages', merged_tocs, merged_maps):
+    for level, category, in_html, out_rst, help_id in generate_pages(args.outdir, merged_tocs, merged_maps):
         lc = level,category
         if lc not in levels:
             levels[lc] = []
@@ -282,9 +281,7 @@ if __name__=='__main__':
                 # print(f'Copying resource {s} to {t} ...')
                 shutil.copy(s, t)
 
-
-        help_map[help_id] = out_rst
-        # pages.append(f'    pages/{level}/{out_rst.name}')
+        # help_map[help_id] = out_rst
 
     # Create an index.rst at each level.
     # Each index.rst must have a reference to the index files below it.
@@ -302,14 +299,14 @@ if __name__=='__main__':
 
         mup = '=' * len(category)
         contents = INDEX_RST.format(__file__, now, category, mup, '\n'.join(pages))
-        with open(args.outdir / 'pages' / level / 'index.rst', 'w') as f:
+        with open(args.outdir / level / 'index.rst', 'w') as f:
             f.write(contents)
 
     # # Save the mapping from helpId to page, so NetBeans help knows where to find stuff.
     # #
     # # pprint.pprint(help_map)
-    # with open(args.outdir / 'pages/help_map.txt', 'w') as f:
+    # with open(args.outdir / 'help_map.txt', 'w') as f:
     #     for help_id, rst in help_map.items():
     #         rst = rst.with_suffix('')
-    #         relative_rst = str(rst.relative_to(args.outdir / 'pages')).replace('\\', '/')
+    #         relative_rst = str(rst.relative_to(args.outdir)).replace('\\', '/')
     #         print(f'{help_id},{relative_rst}', file=f)
