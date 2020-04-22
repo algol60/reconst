@@ -8,11 +8,12 @@ import pprint
 
 from parsehelp import parse_html
 
-# Convert NetBeans HelpSet files to Sphinx.
+# Convert NetBeans HelpSet files to ReStructuredText suitable for Sphinx.
 #
 # Find all the package-info.java files that contain '@HelpSetRegistration'.
 # Get the name of the helpset xml and parse that to get the map and toc values.
 # Merge the tocs into a single toc.
+# Add the helpId as a comment to each file.
 
 ITEMS = '__items__'
 

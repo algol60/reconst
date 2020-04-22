@@ -71,7 +71,7 @@ if __name__=='__main__':
             #
             help_id = mapping[0]
             relative_rst = str(mapping[1].with_suffix('')).replace('\\', '/')
-            print(f'{help_id},{relative_rst}', file=f)
+            print(f'{help_id},{relative_rst}.html', file=f)
 
     print(f'.rst files found: {nfiles}')
     print(f'help-ids found  : {len(mappings)}')
