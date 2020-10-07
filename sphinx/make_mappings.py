@@ -4,28 +4,34 @@ import argparse
 from pathlib import Path
 
 HELP_MAP = 'help_map.txt'
-DIRECTIVE = '.. help-id:'
+HELP_MARKUP = '.. help-id:'
+MODULE_MARKUP = '.. module-id:'
 
 # Make the "helpId to documentation page" mapping required by the NetBeans
 # help system. This assumes that each .rst file that is the target of
 # a helpId contains a
 #
-# .. help-id: this.is.a.unique.help.id
+# .. help-id:: this.is.a.unique.help.id
 #
 # directive. This is interpreted as a comment by ReStructuredText, but is
 # easily found by a script like this one.
 #
 
-def extract_help_id(p):
+def extract_id_markup(p):
     """If this file contains a help-id comment directive, extract the help-id value and return it."""
 
+    help_id = None
+    module_id = None
     with open(p) as f:
         for line in f:
-            if line.startswith(DIRECTIVE):
+            if line.startswith(HELP_MARKUP):
                 line = line.split(':')
-                return line[1].strip()
+                help_id = line[1].strip()
+            elif line.startswith(MODULE_MARKUP):
+                line = line.split(':')
+                module_id = line[1].strip()
 
-    return None
+    return help_id, module_id
 
 if __name__=='__main__':
 
@@ -57,11 +63,18 @@ if __name__=='__main__':
     #
     mappings = []
     nfiles = 0
+    nbadmodules = 0
     for p in args.indir.rglob('*.rst'):
         nfiles += 1
-        help_id = extract_help_id(p)
+        help_id, module_id = extract_id_markup(p)
+
         if help_id:
             mappings.append((help_id, p.relative_to(args.indir)))
+
+        if not module_id:
+            nbadmodules += 1
+            print(f'WARNING: module-id not found or invalid in file {p}')
+        # TODO Check that the module-id is valid.
 
     # Write the help_map file.
     #
@@ -75,4 +88,5 @@ if __name__=='__main__':
 
     print(f'.rst files found: {nfiles}')
     print(f'help-ids found  : {len(mappings)}')
+    print(f'bad module-ids  : {nbadmodules}')
     print(f'help_map.txt    : {args.out}')

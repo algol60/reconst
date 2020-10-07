@@ -19,6 +19,8 @@ from parsehelp import parse_html
 # Merge the tocs into a single toc.
 # Add the helpId as a comment to each file.
 
+TITLE = 'Constellation'
+
 ITEMS = '__items__'
 
 INDEX_RST = '''.. Constellation documentation master file, created by
@@ -41,6 +43,7 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`search`
 
+.. module-id: *
 '''
 
 def box(lines):
@@ -208,7 +211,7 @@ def generate_pages(outdir, merged_tocs, merged_maps):
                 #
                 yield from tree(sub_category, toc[sub_category], sublevel)
 
-    yield from tree('__root__', merged_tocs, [])
+    yield from tree(TITLE, merged_tocs, [])
 
 def get_module(indir, toc_file):
     """The NetBeans module containing the toc_file.
@@ -301,8 +304,8 @@ if __name__=='__main__':
                 # Include the helpId in a comment directive that can be
                 # detected at documentation build time to create the help_map.txt file.
                 #
-                print(f'\n.. help-id:: {help_id}', file=f)
-                print(f'\n.. module-id:: {module}', file=f)
+                print(f'\n.. help-id: {help_id}', file=f)
+                print(f'\n.. module-id: {module}', file=f)
 
             for res_source, res_target in resources:
                 s = in_html.parent / res_source
