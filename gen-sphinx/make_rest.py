@@ -10,6 +10,10 @@ from parsehelp import parse_html
 
 # Convert NetBeans HelpSet files to ReStructuredText suitable for Sphinx.
 #
+# This is a one-off process to allow for a cutover from JavaHelp to ReST,
+# # without losing all of the existing help.
+# Once you go Sphinx, JavaHelp stinks.
+#
 # Find all the package-info.java files that contain '@HelpSetRegistration'.
 # Get the name of the helpset xml and parse that to get the map and toc values.
 # Merge the tocs into a single toc.
@@ -38,6 +42,16 @@ Indices and tables
 * :ref:`search`
 
 '''
+
+def box(lines):
+    width = max(len(line) for line in lines)
+    s = []
+    s.append('*'*(width+4))
+    for line in lines:
+        s.append(f'* {line:<{width}} *')
+    s.append('*'*(width+4))
+
+    return '\n'.join(s)
 
 def helpsets(dir):
     """Yield NetBeans HelpSet marker files."""
@@ -89,7 +103,7 @@ def parse_map(hs, m):
 
     return maps
 
-def parse_toc(hs, toc):
+def parse_toc(hs, toc, module):
     """Parse a -toc.xml helpset table-of-contents file.
 
     Slightly trickier, because there are levels of <tocitem> tags.
@@ -133,7 +147,7 @@ def merge_tocs(toc_list):
 
     Each level of toc is a dict with two optional keys:
     * name - the name of the level, contains a dict of the next level
-    * '__items__' - a list of (name,target) tuples.
+    * ITEMS - a list of (name,target) tuples.
 
     Recursive, obviously.
     """
@@ -158,7 +172,7 @@ def merge_tocs(toc_list):
 def generate_pages(outdir, merged_tocs, merged_maps):
     """Generate documentation in a proper directory hierarchy.
 
-    This means an index.rst file at eacg level.
+    This means an index.rst file at each level.
     """
 
     def simple_name(name):
@@ -172,15 +186,15 @@ def generate_pages(outdir, merged_tocs, merged_maps):
     def tree(category, toc, levels):
         level = '/'.join(levels)
         ensure_dir(outdir, level)
-        if '__items__' in toc:
-            for doc in toc['__items__']:
+        if ITEMS in toc:
+            for doc in toc[ITEMS]:
                 help_id = doc[1]
                 in_html = merged_maps[help_id]
                 out_rst = outdir / level / Path(in_html).with_suffix('.rst').name
                 yield level, category, in_html, out_rst, help_id
         for sub_category in toc:
             cat = simple_name(sub_category)
-            if sub_category!='__items__':
+            if sub_category!=ITEMS:
                 sublevel = levels[:]
                 sublevel.append(cat)
 
@@ -194,7 +208,16 @@ def generate_pages(outdir, merged_tocs, merged_maps):
                 #
                 yield from tree(sub_category, toc[sub_category], sublevel)
 
-    yield from tree('CONSTELLATION', merged_tocs, [])
+    yield from tree('__root__', merged_tocs, [])
+
+def get_module(indir, toc_file):
+    """The NetBeans module containing the toc_file.
+
+    Assuming indir is the root directory of the NetBeans project,
+    the module is the top-most directory of the toc_file under indir.
+    """
+
+    return toc_file.relative_to(indir).parts[0]
 
 if __name__=='__main__':
 
@@ -210,14 +233,17 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Process existing HTML to ReST.')
     parser.add_argument('--indir', type=dir_req, required=True, help='Directory containing NetBeans help')
     parser.add_argument('--outdir', type=dir_req, required=True, help='Output directory tree')
+    parser.add_argument('--index', action='store_true', help='Add index.rst files')
 
     args = parser.parse_args()
-    print(args.indir, args.outdir)
+    # print(args.indir, args.outdir)
+    print(args)
 
     merged_maps = {}
     toc_list = []
     for hs in helpsets(args.indir):
         # print(hs)
+        module = get_module(args.indir, hs)
 
         refs = parse_helpset(hs)
         # print(refs)
@@ -229,7 +255,7 @@ if __name__=='__main__':
                 raise ValueError(f'Target {target} already found')
             merged_maps[target] = url
 
-        toc = parse_toc(hs, refs['javax.help.TOCView'])
+        toc = parse_toc(hs, refs['javax.help.TOCView'], module)
         # pprint.pprint(toc)
         toc_list.append(toc)
 
@@ -258,7 +284,7 @@ if __name__=='__main__':
     # help_map = {}
 
     for level, category, in_html, out_rst, help_id in generate_pages(args.outdir, merged_tocs, merged_maps):
-        lc = level,category
+        lc = level, category
         if lc not in levels:
             levels[lc] = []
         levels[lc].append(out_rst)
@@ -266,15 +292,17 @@ if __name__=='__main__':
         if in_html:
             # This is a help .rst file (not a category / index.rst file).
             #
-            print(in_html)
+            print(f'{in_html} -> {out_rst}')
+            module = get_module(args.indir, hs)
             rest, resources = parse_html(in_html)
             with open(out_rst, 'w', encoding='utf8') as f:
-                f.write(rest)
+                print(rest, file=f)
 
                 # Include the helpId in a comment directive that can be
                 # detected at documentation build time to create the help_map.txt file.
                 #
-                f.write(f'\n.. help-id: {help_id}\n')
+                print(f'\n.. help-id:: {help_id}', file=f)
+                print(f'\n.. module-id:: {module}', file=f)
 
             for res_source, res_target in resources:
                 s = in_html.parent / res_source
@@ -284,24 +312,37 @@ if __name__=='__main__':
 
         # help_map[help_id] = out_rst
 
-    # Create an index.rst at each level.
-    # Each index.rst must have a reference to the index files below it.
-    #
-    now = datetime.datetime.now().isoformat(' ')[:19]
-    for (level, category), rst_files in levels.items():
-        pages = []
-        for page in rst_files:
-            p = Path(page)
-            if p.name=='index.rst':
-                entry = f'{p.parent.name}/index'
-            else:
-                entry = p.stem
-            pages.append(f'    {entry}')
+    if args.index:
+        # Create an index.rst at each level.
+        # Each index.rst must have a reference to the index files below it.
+        #
 
-        mup = '=' * len(category)
-        contents = INDEX_RST.format(__file__, now, category, mup, '\n'.join(pages))
-        with open(args.outdir / level / 'index.rst', 'w') as f:
-            f.write(contents)
+        print('\nGenerating toctree files...')
+
+        now = datetime.datetime.now().isoformat(' ')[:19]
+        for (level, category), rst_files in levels.items():
+            pages = []
+            for page in rst_files:
+                p = Path(page)
+                if p.name=='index.rst':
+                    entry = f'{p.parent.name}/index'
+                else:
+                    entry = p.stem
+                pages.append(f'    {entry}')
+
+            mup = '=' * len(category)
+            contents = INDEX_RST.format(__file__, now, category, mup, '\n'.join(pages))
+            index_path = args.outdir / level / 'index.rst'
+            print(index_path)
+            with open(index_path, 'w') as f:
+                f.write(contents)
+    else:
+        print()
+        print(box([
+            'No index.rst files have been created.',
+            'If this is Core, you probably want index.rst files.',
+            'If so, use --index.'
+        ]))
 
     # # Save the mapping from helpId to page, so NetBeans help knows where to find stuff.
     # #

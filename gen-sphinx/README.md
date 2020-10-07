@@ -10,8 +10,16 @@ You'll need `make_rest.py` and `parsehelp.py`.
 
 The `make_rest.py` script requires two parameters:
 
-* The root of the Constellation source. This is where it starts looking for subdirectories containing `package-info.java` files.
-* An existing (preferably empty) directory to output the converted `.rst` files to.
+* --indir: the root of the Constellation source. This is where it starts looking for subdirectories containing `package-info.java` files.
+* --outdir" an existing (preferably empty) directory to output the converted `.rst` files to.
+
+Optional parameter:
+
+* --index: specify this to create `index.rst` table-of-contents files for each directory level.
+
+Constellation is designed to be modular: the Core provides the base code, then extra modules can be added. For example, a biology-specific or social-networking-specific set of modules can be layered in. These can provide their own set of help files.
+
+At help build time, the help files are copied into a single directory tree. Generally, Core will have `index.rst` files which contain a `toctree::` directive. Other layers should not contain `index.rst` files, otherwise they'll overwrite Core (unless this is what you want, of course). Other layers can contain `index.rst` files, as long as they are in different places to Core's `index.rst` files.
 
 For example:
 

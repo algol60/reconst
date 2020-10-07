@@ -28,8 +28,17 @@ def attr(tag, key):
     return None
 
 def normalise(text):
-    """Convert multiple spaces, new lines to a single space; remove leading/trailing spaces."""
-    return ' '.join(text.strip().split())
+    """Convert multiple spaces, new lines to a single space; remove leading/trailing spaces.
+
+    Trailing underscores are escaped to avoid looking like links.
+    """
+
+    norm = ' '.join(text.strip().split())
+    norm = norm.replace('_ ', r'\ _ ')
+    if norm.endswith('_'):
+        norm = norm[:-1] + r'\ _'
+
+    return norm
 
 def table_row(text_list):
     """Make a CSV row from a list."""
@@ -231,7 +240,7 @@ class HelpParser(HTMLParser):
         elif tag=='dl':
             indent, pad = ('', '')
             for item in items:
-                self.gathertext(f'{indent}{item}{pad}\n')
+                self.gathertext(f'{indent}{normalise(item)}{pad}\n')
                 indent, pad = ('  ', '\n') if indent=='' else ('', '')
 
         elif tag in ['em', 'strong']:
@@ -261,10 +270,11 @@ class HelpParser(HTMLParser):
         elif tag in SECTIONS:
             text = text.strip()
             # We don't need to write the title, it doesn't really belong in the text.
+            # Sphinx will use the first title in the text as the document title.
             #
             if tag!='title':
                 mup = SECTIONS[tag] * len(text)
-                self.gathertext(f'{text}\n{mup}\n\n')
+                self.gathertext(f'{normalise(text)}\n{mup}\n\n')
 
         elif tag=='span':
             outer_tag = self.top()
